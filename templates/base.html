@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}FIVB Monitor{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" rel="stylesheet">
+  <style>table { font-size:.95rem }</style>
+</head>
+<body>
+  <main class="container">
+    <h1>FIVB Beach volleyball withdrawn monitor</h1>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

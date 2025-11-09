@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Turnaj {{ fivb_no }} – FIVB Monitor{% endblock %}
+{% block content %}
+<p><a href="/">← Back</a></p>
+<h2>{{ tournament_name }} {% if gender %}({{ gender }}){% endif %}</h2>
+<table role="grid">
+  <thead><tr>
+    <th>Tým</th><th>Rank</th><th>Status</th><th>Withdrawn date</th>
+  </tr></thead>
+  <tbody id="teams">
+    {% for t in teams %}
+    <tr>
+      <td>{{ t.display_name or (t.player1 ~ " / " ~ t.player2) }}</td>
+      <td>{{ t.rank or "–" }}</td>
+      <td>{{ t.current_status }}</td>
+      <td>{{ t.withdrawn_at or "" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">No data</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p><a href="/">← Back</a></p>
+{% endblock %}

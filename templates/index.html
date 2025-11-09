@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Turnaje – FIVB Monitor{% endblock %}
+{% block content %}
+<table role="grid">
+  <thead><tr>
+    <th>Start</th><th>Event</th><th>Men</th><th>Women</th>
+  </tr></thead>
+  <tbody>
+    {% for e in events %}
+    <tr>
+      <td>{{ e.start_date }}</td>
+      <td>{{ e.name }}</td>
+      <td>{% if e.men_no %}<a href="/tournament/{{ e.men_no }}">M</a>{% else %}–{% endif %}</td>
+      <td>{% if e.women_no %}<a href="/tournament/{{ e.women_no }}">W</a>{% else %}–{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
