@@ -1,4 +1,5 @@
 import builtins
+import requests
 from datetime import date, timedelta
 from unittest.mock import patch, MagicMock
 import xml.etree.ElementTree as ET
@@ -62,12 +63,18 @@ def test_event_tournaments_and_teams_flow(monkeypatch):
     # 3) Registered(8136), Withdrawn(8136)
     # 4) Registered(8137), Withdrawn(8137)
     sequence = [
-        _xml(event_list_xml),
-        _xml(event_detail_xml),
-        _xml(team_registered_xml),
-        _xml(team_withdrawn_xml),
-        _xml(team_registered_xml),
-        _xml(team_withdrawn_xml),
+      _xml(event_list_xml),      # GetEventList
+      _xml(event_detail_xml),    # GetEvent(555)
+
+      # 8136: Registered, Withdrawn, WithdrawnWithMedicalCert
+      _xml(team_registered_xml),
+      _xml(team_withdrawn_xml),
+      _xml(team_withdrawn_xml),  # můžeme znovu použít withdrawn
+
+      # 8137: Registered, Withdrawn, WithdrawnWithMedicalCert
+      _xml(team_registered_xml),
+      _xml(team_withdrawn_xml),
+      _xml(team_withdrawn_xml),  # znovu Withdrawn (nebo klidně Registered, je to jedno)
     ]
 
     def side_effect(_):
@@ -177,10 +184,11 @@ def test_tournament_without_teams_does_not_break(monkeypatch):
     empty_teams_xml = "<Response></Response>"
 
     seq = [
-        ET.fromstring(event_list_xml),
-        ET.fromstring(event_detail_xml),
-        ET.fromstring(empty_teams_xml),  # Registered
-        ET.fromstring(empty_teams_xml),  # Withdrawn
+      ET.fromstring(event_list_xml),
+      ET.fromstring(event_detail_xml),
+      ET.fromstring(empty_teams_xml),  # Registered
+      ET.fromstring(empty_teams_xml),  # Withdrawn
+      ET.fromstring(empty_teams_xml),  # WithdrawnWithMedicalCert
     ]
 
     def side(_):

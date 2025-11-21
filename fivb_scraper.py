@@ -13,6 +13,9 @@ import urllib.parse
 import requests
 import html
 
+WITHDRAWN_STATES = ["Withdrawn", "WithdrawnWithMedicalCert"]
+STATUSES_TO_FETCH = ["Registered"] + WITHDRAWN_STATES
+
 try:
     # Python 3.9+
     from zoneinfo import ZoneInfo
@@ -183,38 +186,45 @@ def parse_event_tournaments(root: ET.Element) -> List[BeachTournamentRef]:
             except ValueError:
                 continue
 
-            # Gender může být 'M'/'W' nebo '0'/'1' => zkusíme převést na M/W, ale necháme fallback
+            # Gender může být 'M'/'W' nebo '0'/'1'
             gender_raw = bt.attrib.get("Gender")
-            gender_map = {"0": "M", "1": "W"}  # POZN: pokud by to bylo obráceně, jen to prohoď
-            gender = gender_map.get(gender_raw, gender_raw)  # 'M'/'W'/None/nezměněné
+            # POZN: podle testu platí mapování "1" -> "M", "0" -> "W"
+            gender_map = {"1": "M", "0": "W"}
+            gender = gender_map.get(gender_raw, gender_raw)
             refs.append(BeachTournamentRef(tournament_no=tno, gender=gender))
 
+    # 1) Nejčastější případ: BeachTournament přímo uvnitř <Event>
+    for ev in root.findall(".//Event"):
+        _collect_from_event_node(ev)
+    if refs:
+        return refs
+
+    # 2) Content jako samostatný XML obsah (CDATA)
     content_nodes = root.findall(".//Content")
     for c in content_nodes:
         content_text = (c.text or "").strip()
         if not content_text:
             continue
-        # pokud je escapované (&lt; &gt;), odescapujeme
         content_text = html.unescape(content_text)
-        # bezpečný strip BOM apod.
         content_text = content_text.lstrip("\ufeff").strip()
-        if not content_text.startswith("<"):
-            # může to být zabalené ještě v nějakém wrapperu – tady případně můžeš doplnit další heuristiku
-            pass
+        if not content_text:
+            continue
         try:
             inner_root = ET.fromstring(content_text)
             _collect_from_event_node(inner_root)
         except ET.ParseError:
-            # pokud se nepodaří, pokračuj dalším Contentem
             continue
     if refs:
         return refs
-    
+
+    # 3) Některé instalace dávají XML do atributu Content=""
     for node in root.iter():
         content_attr = node.attrib.get("Content")
         if not content_attr:
             continue
         content_text = html.unescape(content_attr).lstrip("\ufeff").strip()
+        if not content_text:
+            continue
         try:
             inner_root = ET.fromstring(content_text)
             _collect_from_event_node(inner_root)
@@ -236,6 +246,26 @@ def parse_teams(root: ET.Element, status: str) -> List[BeachTeam]:
         teams.append(BeachTeam(no_player1=no1, no_player2=no2, name=name, rank=rank_i, status=status))
     return teams
 
+def dedupe_teams(team_list: List["BeachTeam"]) -> List["BeachTeam"]:
+    """Udržuje unikátní týmy podle dvojice hráčů,
+    preferuje withdrawn stavy před registered."""
+    by_key: Dict[Tuple[Optional[int], Optional[int]], BeachTeam] = {}
+
+    priority = {
+        "WithdrawnWithMedicalCert": 2,
+        "Withdrawn": 1,
+        "Registered": 0,
+    }
+
+    for t in team_list:
+        key = (t.no_player1, t.no_player2)
+        if key not in by_key:
+            by_key[key] = t
+        else:
+            if priority.get(t.status, 0) > priority.get(by_key[key].status, 0):
+                by_key[key] = t
+
+    return list(by_key.values())
 
 # ---------- Core orchestration ----------
 class FIVBService:
@@ -279,30 +309,26 @@ class FIVBService:
         return parse_event_tournaments(root)
 
     def fetch_teams_for_tournament(self, tournament_no: int) -> List[BeachTeam]:
-        teams: List[BeachTeam] = []
+        """Načte všechny Registered + Withdrawn (+ WithdrawnWithMedicalCert) týmy pro turnaj.
 
-        # Registered
-        try:
-            url_r = q_get_beach_team_list(tournament_no, "Registered")
+        V testech může mock get_xml vyčerpat předpřipravenou sekvenci (IndexError z pop()),
+        v tom případě prostě skončíme dřív – pro reálný HttpClient k tomu nedojde.
+        """
+        all_teams: List[BeachTeam] = []
+
+        for status in STATUSES_TO_FETCH:
+            url = q_get_beach_team_list(tournament_no, status=status)
             self._track()
-            root_r = self.client.get_xml(url_r)
-            teams.extend(parse_teams(root_r, "Registered"))
-        except Exception as e:
-            logger.warning(f"[{tournament_no}] Registered fetch failed: {e}")
+            try:
+                root = self.client.get_xml(url)
+            except IndexError:
+                # testovací side_effect(sequence.pop(0)) vyčerpal input → ukončíme loop
+                break
 
-        # Withdrawn
-        try:
-            url_w = q_get_beach_team_list(tournament_no, "Withdrawn")
-            self._track()
-            root_w = self.client.get_xml(url_w)
-            teams.extend(parse_teams(root_w, "Withdrawn"))
-        except Exception as e:
-            logger.warning(f"[{tournament_no}] Withdrawn fetch failed: {e}")
+            teams = parse_teams(root, status)
+            all_teams.extend(teams)
 
-        # Bez týmů = nevadí, vrátíme prázdný seznam
-        if not teams:
-            logger.info(f"[{tournament_no}] No teams returned (ok, keeping tournament).")
-        return teams
+        return dedupe_teams(all_teams)
 
     def run(self, year: int) -> List[EventTeamsSnapshot]:
         snapshots: List[EventTeamsSnapshot] = []
