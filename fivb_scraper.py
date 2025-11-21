@@ -382,7 +382,7 @@ def main():
     parser = argparse.ArgumentParser(description="Fetch FIVB beach tournaments upcoming window")
     parser.add_argument("--year", type=int, default=date.today().year)
     parser.add_argument("--window-days", type=int, default=28)
-    parser.add_argument("--max-requests", type=int, default=20)
+    parser.add_argument("--max-requests", type=int, default=61)
     parser.add_argument("--timeout", type=int, default=30)
     parser.add_argument("--retry-wait", type=int, default=15*60, help="Seconds between retries (default 900)")
     parser.add_argument("--max-attempts", type=int, default=3)
