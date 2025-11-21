@@ -26,8 +26,10 @@ CREATE TABLE IF NOT EXISTS team (
   player1_id INTEGER NOT NULL REFERENCES player(player_id),
   player2_id INTEGER NOT NULL REFERENCES player(player_id),
   display_name TEXT,
+  country_code  varchar(3),
   CONSTRAINT team_players_order CHECK (player1_id < player2_id),
-  CONSTRAINT team_players_unique UNIQUE (player1_id, player2_id)
+  CONSTRAINT team_players_unique UNIQUE (player1_id, player2_id),
+  CONSTRAINT team_country_code_chk CHECK (country_code IS NULL OR country_code ~ '^[A-Z]{3}$')
 );
 
 CREATE TABLE IF NOT EXISTS crawl_run (
