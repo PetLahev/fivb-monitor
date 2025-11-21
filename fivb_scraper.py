@@ -52,7 +52,8 @@ class BeachTeam:
     no_player2: Optional[int]
     name: str
     rank: Optional[int]
-    status: str  # 'Registered' / 'Withdrawn'
+    status: str  # 'Registered' / 'Withdrawn' / 'WithdrawnWithMedicalCert'
+    country_code: Optional[str] = None
 
 @dataclass
 class EventTeamsSnapshot:
@@ -243,7 +244,28 @@ def parse_teams(root: ET.Element, status: str) -> List[BeachTeam]:
         p2 = node.attrib.get("NoPlayer2")
         no1 = int(p1) if p1 and p1.isdigit() else None
         no2 = int(p2) if p2 and p2.isdigit() else None
-        teams.append(BeachTeam(no_player1=no1, no_player2=no2, name=name, rank=rank_i, status=status))
+        
+        # country code – název atributu podle FIVB (často "CountryCode" nebo "NF")
+        cc = (
+            node.attrib.get("CountryCode")
+            or node.attrib.get("NF")
+            or None
+        )
+        if cc:
+            cc = cc.strip().upper()
+            if len(cc) != 3:
+                cc = None  # raději zahodit než cpát bordel do DB
+
+        teams.append(
+            BeachTeam(
+                no_player1=no1,
+                no_player2=no2,
+                name=name,
+                rank=rank_i,
+                status=status,
+                country_code=cc,
+            )
+        )
     return teams
 
 def dedupe_teams(team_list: List["BeachTeam"]) -> List["BeachTeam"]:

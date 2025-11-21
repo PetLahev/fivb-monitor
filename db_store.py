@@ -135,18 +135,19 @@ class Storage:
         new_p2 = cur.fetchone()["player_id"]
         return p1_id, new_p2
 
-    def upsert_team(self, cur, p1_id: int, p2_id: int, display_name: Optional[str]) -> int:
+    def upsert_team(self, cur, p1_id: int, p2_id: int, display_name: Optional[str], country_code=None) -> int:
         # zajistíme stabilní pořadí (menší id jako player1)
         a, b = sorted((p1_id, p2_id))
         cur.execute(
             """
-            INSERT INTO team (player1_id, player2_id, display_name)
-            VALUES (%s, %s, %s)
+            INSERT INTO team (player1_id, player2_id, display_name, country_code)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (player1_id, player2_id) DO UPDATE
-              SET display_name = COALESCE(EXCLUDED.display_name, team.display_name)
-            RETURNING team_id;
+              SET display_name = EXCLUDED.display_name,
+                country_code = COALESCE(EXCLUDED.country_code, team.country_code)
+            RETURNING team_id
             """,
-            (a, b, display_name),
+            (a, b, display_name, country_code),
         )
         return cur.fetchone()["team_id"]
 
@@ -219,7 +220,13 @@ class Storage:
                                 p1_id, p2_id = self._ensure_distinct_players(cur, p1_id, p2_id, fallback_name=fallback)
                                 
                                 # Team
-                                team_id = self.upsert_team(cur, p1_id, p2_id, team.name or None)
+                                team_id = self.upsert_team(
+                                    cur,
+                                    p1_id,
+                                    p2_id,
+                                    team.name or None,
+                                    team.country_code,
+                                )
 
                                 # Snapshot
                                 self.upsert_snapshot(cur, t_id, team_id, run_id, team.status, team.rank)
