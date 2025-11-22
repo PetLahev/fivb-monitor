@@ -9,6 +9,14 @@
     {% if gender %}<span class="badge badge-gender">{{ gender }}</span>{% endif %}
 </h2>
 
+{% if other_fivb_no %}
+  <p class="switch-gender">
+    <a href="/tournament/{{ other_fivb_no }}">
+      Switch to {{ 'women' if gender == 'M' else 'men' }}
+    </a>
+  </p>
+{% endif %}
+
 <h3>Teams</h3>
 
 <table class="data-table sortable" role="grid">

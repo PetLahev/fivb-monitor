@@ -64,7 +64,10 @@ def tournament_detail(request: Request, fivb_no: int):
     with db() as conn, conn.cursor() as cur:
         # najdeme turnaj podle FIVB čísla
         cur.execute("""
-            SELECT t.tournament_id, t.gender, e.name AS event_name
+            SELECT t.tournament_id,
+                t.gender,
+                t.event_id,
+                e.name AS event_name
             FROM tournament t
             JOIN event e ON e.event_id = t.event_id
             WHERE t.fivb_tournament_no = %s
@@ -80,8 +83,27 @@ def tournament_detail(request: Request, fivb_no: int):
                     "fivb_no": fivb_no,
                     "gender": None,
                     "tournament_name": None,
+                    "other_fivb_no": None,
+                    "other_gender": None,
                 },
             )
+
+        # najdeme případný opačný turnaj (M ↔ W) v rámci stejného eventu
+        other_fivb_no = None
+        other_gender = None
+        if t["gender"] in ("M", "W"):
+            cur.execute("""
+                SELECT fivb_tournament_no, gender
+                FROM tournament
+                WHERE event_id = %s
+                AND gender IS NOT NULL
+                AND gender <> %s
+                LIMIT 1;
+            """, (t["event_id"], t["gender"]))
+            other = cur.fetchone()
+            if other:
+                other_fivb_no = other["fivb_tournament_no"]
+                other_gender = other["gender"]
 
         # aktuální stav týmů pro daný turnaj
         cur.execute("""
@@ -124,6 +146,8 @@ def tournament_detail(request: Request, fivb_no: int):
                 "fivb_no": fivb_no,
                 "gender": t["gender"],
                 "tournament_name": t["event_name"],
+                "other_fivb_no": other_fivb_no,
+                "other_gender": other_gender,
             },
         )
 

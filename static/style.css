@@ -175,3 +175,16 @@ a:hover {
     height: auto;
     display: inline-block;
 }
+
+.switch-gender {
+    margin: 0 0 12px 0;
+    font-size: 0.9rem;
+}
+
+.switch-gender a {
+    text-decoration: none;
+    font-weight: 600;
+}
+.switch-gender a:hover {
+    text-decoration: underline;
+}
