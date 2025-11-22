@@ -35,6 +35,7 @@ upcoming events.
 ### 4. Hosting (Hetzner)
 
 The system is hosted on a **Hetzner cloud server** (SSH accessible).\
+http://91.99.24.177/
 The app runs via systemd service + uvicorn + FastAPI.
 
 ### 5. Logging Into the Server
