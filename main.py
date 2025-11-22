@@ -31,6 +31,7 @@ def homepage(request: Request):
 @app.get("/tournament/{fivb_no}", response_class=HTMLResponse)
 def tournament_detail(request: Request, fivb_no: int):
     with db() as conn, conn.cursor() as cur:
+        # najdeme turnaj podle FIVB čísla
         cur.execute("""
             SELECT t.tournament_id, t.gender, e.name AS event_name
             FROM tournament t
@@ -38,40 +39,61 @@ def tournament_detail(request: Request, fivb_no: int):
             WHERE t.fivb_tournament_no = %s
         """, (fivb_no,))
         t = cur.fetchone()
+
         if not t:
             return templates.TemplateResponse(
-                "tournament.html", 
-                {"request": request, "teams": [], "fivb_no": fivb_no, "gender": None, "tournament_name": None})
+                "tournament.html",
+                {
+                    "request": request,
+                    "teams": [],
+                    "fivb_no": fivb_no,
+                    "gender": None,
+                    "tournament_name": None,
+                },
+            )
+
+        # aktuální stav týmů pro daný turnaj
         cur.execute("""
         WITH cur AS (
           SELECT DISTINCT ON (tts.team_id)
-            tts.team_id, tts.rank, tts.status AS current_status, cr.run_date AS as_of_date
+            tts.team_id,
+            tts.status AS current_status,
+            cr.run_date AS as_of_date
           FROM tournament_team_snapshot tts
           JOIN crawl_run cr ON cr.run_id = tts.run_id
           WHERE tts.tournament_id = %s
           ORDER BY tts.team_id, cr.run_date DESC
         )
-        SELECT tm.team_id, p1.name AS player1, p2.name AS player2, tm.display_name,
-               cur.rank, cur.current_status,
-               w.withdrawn_at
+        SELECT
+          tm.team_id,
+          p1.name AS player1,
+          p2.name AS player2,
+          tm.display_name,
+          tm.country_code,
+          cur.current_status,
+          w.withdrawn_at
         FROM cur
         JOIN team tm ON tm.team_id = cur.team_id
         JOIN player p1 ON p1.player_id = tm.player1_id
         JOIN player p2 ON p2.player_id = tm.player2_id
         LEFT JOIN v_tournament_team_withdrawal w
           ON w.tournament_id = %s AND w.team_id = cur.team_id
-        ORDER BY (cur.current_status='Withdrawn') DESC,
-                 w.withdrawn_at NULLS LAST,
-                 COALESCE(cur.rank, 999999), tm.team_id
+        ORDER BY
+          (cur.current_status IN ('Withdrawn','WithdrawnWithMedicalCert')) DESC,
+          w.withdrawn_at NULLS LAST,
+          tm.team_id;
         """, (t["tournament_id"], t["tournament_id"]))
         teams = cur.fetchall()
+
         return templates.TemplateResponse(
-        "tournament.html",
-        {
-            "request": request,
-            "teams": teams,
-            "fivb_no": fivb_no,
-            "gender": t["gender"],
-            "tournament_name": t["event_name"]
-        }
-    )
+            "tournament.html",
+            {
+                "request": request,
+                "teams": teams,
+                "fivb_no": fivb_no,
+                "gender": t["gender"],
+                "tournament_name": t["event_name"],
+            },
+        )
+
+

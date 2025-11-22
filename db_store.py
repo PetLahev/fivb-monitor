@@ -51,7 +51,8 @@ class BeachTeam:
     no_player2: Optional[int]
     name: str
     rank: Optional[int]
-    status: str  # 'Registered' | 'Withdrawn'
+    status: str  # 'Registered' | 'Withdrawn' | 'WithdrawnWithMedicalCert'
+    country_code: Optional[str] = None
 
 @dataclass
 class EventTeamsSnapshot:

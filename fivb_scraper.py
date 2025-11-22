@@ -148,7 +148,7 @@ def q_get_event(no: int) -> str:
 def q_get_beach_team_list(no_tournament: int, status: str) -> str:
     xml = (
         "<Requests>"
-        "<Request Type='GetBeachTeamList' Fields='NoPlayer1 NoPlayer2 Name Rank'>"
+        "<Request Type='GetBeachTeamList' Fields='NoPlayer1 NoPlayer2 Name Rank Player1FederationCode'>"
         f"<Filter NoTournament='{no_tournament}' Status='{status}'/>"
         "</Request>"
         "</Requests>"
@@ -244,17 +244,18 @@ def parse_teams(root: ET.Element, status: str) -> List[BeachTeam]:
         p2 = node.attrib.get("NoPlayer2")
         no1 = int(p1) if p1 and p1.isdigit() else None
         no2 = int(p2) if p2 and p2.isdigit() else None
-        
-        # country code – název atributu podle FIVB (často "CountryCode" nebo "NF")
-        cc = (
-            node.attrib.get("CountryCode")
-            or node.attrib.get("NF")
-            or None
-        )
+
+        # PRIMARY – federation code for player 1 (FIVB official)
+        cc = node.attrib.get("Player1FederationCode")
+
+        # fallback options
+        if not cc:
+            cc = node.attrib.get("CountryCode") or node.attrib.get("NF")
+
         if cc:
             cc = cc.strip().upper()
             if len(cc) != 3:
-                cc = None  # raději zahodit než cpát bordel do DB
+                cc = None
 
         teams.append(
             BeachTeam(
