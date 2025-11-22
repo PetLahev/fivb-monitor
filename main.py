@@ -1,11 +1,41 @@
+from fastapi.middleware.cors import CORSMiddleware
+from typing import List, Optional
+from pydantic import BaseModel
+from fastapi import HTTPException
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from api import router as api_router
 import psycopg2, psycopg2.extras
 import os
 
+class WithdrawalTeam(BaseModel):
+    team_id: int
+    display_name: Optional[str]
+
+    player1_name: Optional[str]
+    player2_name: Optional[str]
+    fivb_player1_no: Optional[int]
+    fivb_player2_no: Optional[int]
+
+    country_code: Optional[str]
+    withdrawn_at: Optional[str]
+
+    tournament_id: int
+    tournament_fivb_no: int
+    event_id: int
+    event_fivb_no: int
+
 app = FastAPI()
+app.include_router(api_router, prefix="/api")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 templates = Jinja2Templates(directory="templates")
 
 def db():
