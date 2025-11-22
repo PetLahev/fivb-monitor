@@ -2,7 +2,7 @@
 {% block title %}{{ tournament_name or ('Tournament ' ~ fivb_no) }} – FIVB Monitor{% endblock %}
 
 {% block content %}
-<p><a href="javascript:history.back()">← Back</a></p>
+<p><a href="/">← Back</a></p>
 
 <h2>
     {{ tournament_name or ('Tournament ' ~ fivb_no) }}
@@ -52,5 +52,5 @@
   </tbody>
 </table>
 
-<p><a href="/">← Back to events</a></p>
+<p><a href="/">← Back</a></p>
 {% endblock %}
