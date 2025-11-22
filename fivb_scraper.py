@@ -289,6 +289,30 @@ def dedupe_teams(team_list: List["BeachTeam"]) -> List["BeachTeam"]:
 
     return list(by_key.values())
 
+def notify_error(msg: str):
+    webhook = os.getenv("DISCORD_WEBHOOK_URL") or os.getenv("SLACK_WEBHOOK_URL")
+    if webhook:
+        try:
+            requests.post(webhook, json={"content": msg}, timeout=10)
+        except Exception:
+            pass  # nechceme spadnout jen kvůli notifikaci
+
+    # Email – volitelné
+    if os.getenv("ALERT_EMAIL_TO"):
+        import smtplib
+        from email.mime.text import MIMEText
+        mail_to = os.getenv("ALERT_EMAIL_TO")
+        body = MIMEText(msg)
+        body['Subject'] = "FIVB Scraper Error"
+        body['From'] = os.getenv("SMTP_FROM", "scraper@localhost")
+        body['To'] = mail_to
+        try:
+            smtp = smtplib.SMTP(os.getenv("SMTP_HOST", "localhost"), int(os.getenv("SMTP_PORT", "25")))
+            smtp.sendmail(body['From'], [mail_to], body.as_string())
+            smtp.quit()
+        except Exception:
+            pass
+
 # ---------- Core orchestration ----------
 class FIVBService:
     def __init__(self, client: HttpClient, max_requests_per_run: int = 20):
@@ -377,59 +401,65 @@ class FIVBService:
 
 
 # ---------- CLI example ----------
-def main():
+def main():    
     import argparse
-    parser = argparse.ArgumentParser(description="Fetch FIVB beach tournaments upcoming window")
-    parser.add_argument("--year", type=int, default=date.today().year)
-    parser.add_argument("--window-days", type=int, default=28)
-    parser.add_argument("--max-requests", type=int, default=61)
-    parser.add_argument("--timeout", type=int, default=30)
-    parser.add_argument("--retry-wait", type=int, default=15*60, help="Seconds between retries (default 900)")
-    parser.add_argument("--max-attempts", type=int, default=3)
-    parser.add_argument("--application-id", type=str, default="FIVB.12ndr.WithdrawnMonitor",  help="Identifikátor aplikace (Application header v requestech)")
-    parser.add_argument("--tz", type=str, default=DEFAULT_TZ)
-    args = parser.parse_args()
+    try:
+        parser = argparse.ArgumentParser(description="Fetch FIVB beach tournaments upcoming window")
+        parser.add_argument("--year", type=int, default=date.today().year)
+        parser.add_argument("--window-days", type=int, default=28)
+        parser.add_argument("--max-requests", type=int, default=61)
+        parser.add_argument("--timeout", type=int, default=30)
+        parser.add_argument("--retry-wait", type=int, default=15*60, help="Seconds between retries (default 900)")
+        parser.add_argument("--max-attempts", type=int, default=3)
+        parser.add_argument("--application-id", type=str, default="FIVB.12ndr.WithdrawnMonitor",  help="Identifikátor aplikace (Application header v requestech)")
+        parser.add_argument("--tz", type=str, default=DEFAULT_TZ)
+        args = parser.parse_args()
 
-    client = HttpClient(
-        application_id=args.application_id,
-        per_attempt_timeout=args.timeout,
-        retry_wait_seconds=args.retry_wait,
-        max_attempts=args.max_attempts
-    )
-    svc = FIVBService(client, max_requests_per_run=args.max_requests)
+        client = HttpClient(
+            application_id=args.application_id,
+            per_attempt_timeout=args.timeout,
+            retry_wait_seconds=args.retry_wait,
+            max_attempts=args.max_attempts
+        )
+        svc = FIVBService(client, max_requests_per_run=args.max_requests)
 
-    snapshots = svc.run(args.year)
+        snapshots = svc.run(args.year)
 
         # Výstup do konzole a souboru
-    output_lines = []
+        output_lines = []
 
-    for snap in snapshots:
-        ev = snap.event
-        header = f"\nEvent {ev.no} | {ev.code} | {ev.name} | {ev.start_date} → {ev.end_date}"
-        print(header)
-        output_lines.append(header)
+        for snap in snapshots:
+            ev = snap.event
+            header = f"\nEvent {ev.no} | {ev.code} | {ev.name} | {ev.start_date} → {ev.end_date}"
+            print(header)
+            output_lines.append(header)
 
-        for tref in snap.tournaments:
-            teams = snap.teams_by_tournament.get(tref.tournament_no, [])
-            sub_header = f"  Tournament {tref.tournament_no} ({tref.gender or '?'}) — teams: {len(teams)}"
-            print(sub_header)
-            output_lines.append(sub_header)
+            for tref in snap.tournaments:
+                teams = snap.teams_by_tournament.get(tref.tournament_no, [])
+                sub_header = f"  Tournament {tref.tournament_no} ({tref.gender or '?'}) — teams: {len(teams)}"
+                print(sub_header)
+                output_lines.append(sub_header)
 
-            for t in teams:
-                line = f"    [{t.status}] {t.name} (rank={t.rank}, players={t.no_player1}/{t.no_player2})"
-                print(line)
-                output_lines.append(line)
+                for t in teams:
+                    line = f"    [{t.status}] {t.name} (rank={t.rank}, players={t.no_player1}/{t.no_player2})"
+                    print(line)
+                    output_lines.append(line)
 
-    # Zapsání do souboru (UTF-8, přepíše při každém běhu)
-    #output_path = "teams_output.txt"
-    #with open(output_path, "w", encoding="utf-8") as f:
-    #    f.write("\n".join(output_lines))
+        # Zapsání do souboru (UTF-8, přepíše při každém běhu)
+        #output_path = "teams_output.txt"
+        #with open(output_path, "w", encoding="utf-8") as f:
+        #    f.write("\n".join(output_lines))
 
-    #print(f"\n✅ Výsledky zapsány do souboru: {output_path}")
+        #print(f"\n✅ Výsledky zapsány do souboru: {output_path}")
 
-    store = Storage()  # vezme DATABASE_URL/PG* proměnné, jinak lokální defaulty
-    store.persist_snapshots(snapshots, run_date=date.today())
-    print("✅ Uloženo do DB.")
+        store = Storage()  # vezme DATABASE_URL/PG* proměnné, jinak lokální defaulty
+        store.persist_snapshots(snapshots, run_date=date.today())
+        print("✅ Uloženo do DB.")
+    except Exception as e:
+        msg = f"❌ Scraper crashed: {e}"
+        print(msg)
+        notify_error(msg)
+        raise
 
 if __name__ == "__main__":
     main()
