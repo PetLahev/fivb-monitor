@@ -150,3 +150,28 @@ a {
 a:hover {
     text-decoration: underline;
 }
+
+.ccell {
+    padding: 4px 8px;
+}
+
+.cc {
+    display: inline-flex;
+    align-items: center;    /* vertikální zarovnání */
+    gap: 4px;               /* mezera mezi textem a vlajkou */
+}
+
+/* Sloupec s vlajkou bude úzký */
+.flag-cell {
+    text-align: center;
+    width: 16px;      /* malý pevný sloupec */
+    padding: 0;
+    margin: 0;
+}
+
+/* Country flag: super small */
+.flag-icon {
+    width: 16px;       /* Vlajka bude cca 6px x 4px */
+    height: auto;
+    display: inline-block;
+}
