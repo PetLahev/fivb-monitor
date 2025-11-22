@@ -1,0 +1,152 @@
+/* Layout */
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f2f2f2;
+    color: #222;
+}
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 12px;
+}
+
+/* Header / footer */
+
+.topbar {
+    background: #004c7f;
+    color: #fff;
+    padding: 10px 0;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.logo {
+    margin: 0;
+    font-size: 20px;
+}
+
+.logo a {
+    color: #fff;
+    text-decoration: none;
+}
+
+.nav a {
+    color: #dfefff;
+    margin-left: 12px;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.nav a:hover {
+    text-decoration: underline;
+}
+
+.footer {
+    margin-top: 32px;
+    padding: 12px 0;
+    background: #eee;
+    font-size: 12px;
+    color: #666;
+}
+
+/* Headings */
+
+h2 {
+    margin-top: 0;
+    font-size: 20px;
+    margin-bottom: 8px;
+}
+
+h3 {
+    margin-top: 20px;
+    font-size: 16px;
+}
+
+/* Table – similar look to 12ndr */
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: #fff;
+    border: 1px solid #ddd;
+    margin-bottom: 16px;
+}
+
+.data-table thead {
+    background: #f5f5f5;
+}
+
+.data-table th,
+.data-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.data-table tbody tr:hover {
+    background: #f0f7ff;
+}
+
+.data-table th {
+    cursor: pointer;
+    user-select: none;
+}
+
+.data-table th.sort-asc::after {
+    content: " ▲";
+    font-size: 10px;
+}
+
+.data-table th.sort-desc::after {
+    content: " ▼";
+    font-size: 10px;
+}
+
+/* Badges / status */
+
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-gender {
+    background: #eee;
+    color: #333;
+    margin-left: 4px;
+}
+
+.badge-registered {
+    background: #e5f7e5;
+    color: #206020;
+}
+
+.badge-withdrawn {
+    background: #ffe5e5;
+    color: #802020;
+}
+
+.row-withdrawn {
+    font-style: normal;
+}
+
+/* Links */
+
+a {
+    color: #005fa3;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}

@@ -1,24 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Turnaj {{ fivb_no }} – FIVB Monitor{% endblock %}
+{% block title %}{{ tournament_name or ('Tournament ' ~ fivb_no) }} – FIVB Monitor{% endblock %}
+
 {% block content %}
-<p><a href="/">← Back</a></p>
-<h2>{{ tournament_name }} {% if gender %}({{ gender }}){% endif %}</h2>
-<table role="grid">
-  <thead><tr>
-    <th>Tým</th><th>Country</th><th>Status</th><th>Withdrawn date</th>
-  </tr></thead>
-  <tbody id="teams">
-    {% for t in teams %}
+<p><a href="javascript:history.back()">← Back</a></p>
+
+<h2>
+    {{ tournament_name or ('Tournament ' ~ fivb_no) }}
+    {% if gender %}<span class="badge badge-gender">{{ gender }}</span>{% endif %}
+</h2>
+
+<h3>Teams</h3>
+
+<table class="data-table sortable" role="grid">
+    <thead>
     <tr>
-      <td>{{ t.display_name or (t.player1 ~ " / " ~ t.player2) }}</td>
-      <td>{{ t.country_code }}</td>
-      <td>{{ t.current_status }}</td>
-      <td>{{ t.withdrawn_at or "" }}</td>
+        <th data-sort="string">Team</th>
+        <th data-sort="string">Country</th>
+        <th data-sort="string">Status</th>
+        <th data-sort="date">Withdrawn date</th>
     </tr>
+    </thead>
+    <tbody>
+    {% for t in teams %}
+        <tr class="
+            {% if t.current_status in ('Withdrawn','WithdrawnWithMedicalCert') %}row-withdrawn{% endif %}
+        ">
+            <td>{{ t.display_name or (t.player1 ~ " / " ~ t.player2) }}</td>
+            <td>{{ t.country_code or '' }}</td>
+            <td>
+                {% if t.current_status in ('Withdrawn','WithdrawnWithMedicalCert') %}
+                    <span class="badge badge-withdrawn">
+                        {{ 'Withdrawn (med.)' if t.current_status == 'WithdrawnWithMedicalCert' else 'Withdrawn' }}
+                    </span>
+                {% else %}
+                    <span class="badge badge-registered">Registered</span>
+                {% endif %}
+            </td>
+            <td>{{ t.withdrawn_at or '' }}</td>
+        </tr>
     {% else %}
-    <tr><td colspan="4">No data</td></tr>
+        <tr><td colspan="4">No data.</td></tr>
     {% endfor %}
-  </tbody>
+    </tbody>
 </table>
-<p><a href="/">← Back</a></p>
+
+<p><a href="/">← Back to events</a></p>
 {% endblock %}
