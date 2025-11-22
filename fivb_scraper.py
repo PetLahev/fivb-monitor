@@ -188,9 +188,8 @@ def parse_event_tournaments(root: ET.Element) -> List[BeachTournamentRef]:
                 continue
 
             # Gender může být 'M'/'W' nebo '0'/'1'
-            gender_raw = bt.attrib.get("Gender")
-            # POZN: podle testu platí mapování "1" -> "M", "0" -> "W"
-            gender_map = {"1": "M", "0": "W"}
+            gender_raw = bt.attrib.get("Gender")            
+            gender_map = {"0": "M", "1": "W"}
             gender = gender_map.get(gender_raw, gender_raw)
             refs.append(BeachTournamentRef(tournament_no=tno, gender=gender))
 
