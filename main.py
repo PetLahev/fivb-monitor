@@ -127,4 +127,16 @@ def tournament_detail(request: Request, fivb_no: int):
             },
         )
 
+def flag_url(nf: Optional[str]) -> Optional[str]:
+    """
+    nf = 3písmenný country/federation kód (např. CZE, BRA, USA, ENG, WAL)
+    Vrací URL na lokální malou vlajku v /static/flags.
+    """
+    if not nf:
+        return None
+    nf = nf.upper()
+    return f"/static/flags/{nf}.svg"
+
+
+templates.env.globals["flag_url"] = flag_url
 
