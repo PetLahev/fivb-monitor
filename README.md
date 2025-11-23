@@ -53,7 +53,7 @@ format when prompted.
 The server uses PostgreSQL.\
 Login example:
 
-    psql postgresql://postgres:<PASSWORD>@localhost:5432/fivb_monitor
+    psql "postgresql://fivb_user:<PASSWORD>@localhost:5432/fivb_monitor"
 
 From VS Code / DBeaver, use: - Host: `127.0.0.1` - User: `postgres` -
 DB: `fivb_monitor`
