@@ -1,7 +1,7 @@
 // static/sort.js
 (function () {
   function parseDate(v) {
-    // očekáváme "YYYY-MM-DD" nebo prázdno
+    // expecting "YYYY-MM-DD" or empty
     if (!v) return 0;
     const d = new Date(v);
     return d.getTime() || 0;
@@ -37,7 +37,7 @@
                          : null;
         const newDir = currentDir === "asc" ? "desc" : "asc";
 
-        // reset šipek
+        // reset arrows
         ths.forEach(h => h.classList.remove("sort-asc", "sort-desc"));
         th.classList.add(newDir === "asc" ? "sort-asc" : "sort-desc");
 

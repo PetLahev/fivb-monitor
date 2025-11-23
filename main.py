@@ -134,7 +134,7 @@ def tournament_detail(request: Request, fivb_no: int):
         LEFT JOIN v_tournament_team_withdrawal w
           ON w.tournament_id = %s AND w.team_id = cur.team_id
         ORDER BY
-          (cur.current_status IN ('Withdrawn','WithdrawnWithMedicalCert')) DESC,
+          (cur.current_status IN ('Withdrawn','WithdrawnWithMedicalCert','Deleted')) DESC,
           w.withdrawn_at NULLS LAST,
           tm.team_id;
         """, (t["tournament_id"], t["tournament_id"]))

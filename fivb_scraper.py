@@ -13,7 +13,7 @@ import urllib.parse
 import requests
 import html
 
-WITHDRAWN_STATES = ["Withdrawn", "WithdrawnWithMedicalCert"]
+WITHDRAWN_STATES = ["Withdrawn", "WithdrawnWithMedicalCert", "Deleted"]
 STATUSES_TO_FETCH = ["Registered"] + WITHDRAWN_STATES
 
 try:
@@ -274,6 +274,7 @@ def dedupe_teams(team_list: List["BeachTeam"]) -> List["BeachTeam"]:
     by_key: Dict[Tuple[Optional[int], Optional[int]], BeachTeam] = {}
 
     priority = {
+        "Deleted": 3,
         "WithdrawnWithMedicalCert": 2,
         "Withdrawn": 1,
         "Registered": 0,
