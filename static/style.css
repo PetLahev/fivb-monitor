@@ -185,6 +185,13 @@ a:hover {
     text-decoration: none;
     font-weight: 600;
 }
+
 .switch-gender a:hover {
     text-decoration: underline;
+}
+
+.last-checked {
+    font-size: 0.85rem;
+    color: #666;
+    margin: 0 0 8px 0;
 }

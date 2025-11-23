@@ -124,7 +124,8 @@ def tournament_detail(request: Request, fivb_no: int):
           tm.display_name,
           tm.country_code,
           cur.current_status,
-          w.withdrawn_at
+          w.withdrawn_at,
+          MAX(cur.as_of_date) OVER () AS last_checked
         FROM cur
         JOIN team tm ON tm.team_id = cur.team_id
         JOIN player p1 ON p1.player_id = tm.player1_id
@@ -138,6 +139,8 @@ def tournament_detail(request: Request, fivb_no: int):
         """, (t["tournament_id"], t["tournament_id"]))
         teams = cur.fetchall()
 
+        last_checked = teams[0]["last_checked"] if teams else None
+
         return templates.TemplateResponse(
             "tournament.html",
             {
@@ -148,6 +151,7 @@ def tournament_detail(request: Request, fivb_no: int):
                 "tournament_name": t["event_name"],
                 "other_fivb_no": other_fivb_no,
                 "other_gender": other_gender,
+                "last_checked": last_checked,
             },
         )
 

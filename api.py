@@ -38,6 +38,7 @@ class WithdrawalTeam(BaseModel):
     tournament_fivb_no: int
     event_id: int
     event_fivb_no: int
+    last_checked: Optional[str]
 
 
 @router.get("/tournament/{fivb_no}/withdrawals", response_model=List[WithdrawalTeam])
@@ -71,6 +72,16 @@ def api_tournament_withdrawals(fivb_no: int):
         event_id = t["event_id"]
         event_fivb_no = t["fivb_event_no"]
 
+        # poslední datum kontroly pro daný turnaj
+        cur.execute("""
+            SELECT MAX(cr.run_date) AS last_checked
+            FROM tournament_team_snapshot tts
+            JOIN crawl_run cr ON cr.run_id = tts.run_id
+            WHERE tts.tournament_id = %s
+        """, (tournament_id,))
+        row = cur.fetchone()
+        last_checked = row["last_checked"] if row else None
+
         # 2) Vytáhneme všechny odhlášené týmy pro tento turnaj z view
         cur.execute(
             """
@@ -90,7 +101,7 @@ def api_tournament_withdrawals(fivb_no: int):
             JOIN player p1 ON p1.player_id = tm.player1_id
             JOIN player p2 ON p2.player_id = tm.player2_id
             WHERE w.tournament_id = %s
-            ORDER BY w.withdrawn_at, tm.team_id;
+            ORDER BY w.withdrawn_at NULLS LAST, tm.team_id
             """,
             (tournament_id,),
         )
@@ -111,6 +122,7 @@ def api_tournament_withdrawals(fivb_no: int):
                 tournament_fivb_no=tournament_fivb_no,
                 event_id=event_id,
                 event_fivb_no=event_fivb_no,
+                last_checked=last_checked.isoformat() if last_checked else None,
             )
             for r in rows
         ]

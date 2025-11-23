@@ -19,6 +19,11 @@
 
 <h3>Teams</h3>
 
+{% if last_checked %}
+  <p class="last-checked">
+    Last checked: {{ last_checked }}
+  </p>
+{% endif %}
 <table class="data-table sortable" role="grid">
     <thead>
       <tr>
