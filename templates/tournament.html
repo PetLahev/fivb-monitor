@@ -21,7 +21,7 @@
 
 {% if last_checked %}
   <p class="last-checked">
-    Last checked: {{ last_checked }}
+    Last checked: {{ last_checked | format_date }}
   </p>
 {% endif %}
 <table class="data-table sortable" role="grid">
@@ -51,7 +51,7 @@
         </td>
 
         <td>{{ t.current_status }}</td>
-        <td>{{ t.withdrawn_at or "" }}</td>
+        <td>{{ t.withdrawn_at | format_date }}</td>
       </tr>
       {% endfor %}
   </tbody>

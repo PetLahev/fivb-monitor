@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from api import router as api_router
+from datetime import datetime
 import psycopg2, psycopg2.extras
 import os
 
@@ -168,3 +169,22 @@ def flag_url(nf: Optional[str]) -> Optional[str]:
 
 templates.env.globals["flag_url"] = flag_url
 
+def format_date(value):
+    """
+    Format date or ISO string to 'DD MMM YYYY'
+    Example: 2025-11-22 -> '22 Nov 2025'
+    """
+    if not value:
+        return ""
+    
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value).date()
+        except ValueError:
+            return value  # fallback
+
+    # '22 Nov 2025'
+    return value.strftime("%d %b %Y")
+
+# make filter available in templates
+templates.env.filters["format_date"] = format_date
