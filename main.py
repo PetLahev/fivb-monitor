@@ -45,20 +45,57 @@ def db():
     return psycopg2.connect(url, cursor_factory=psycopg2.extras.DictCursor)
 
 @app.get("/", response_class=HTMLResponse)
-def homepage(request: Request):
-    sql = """
-    SELECT e.event_id, e.fivb_event_no, e.code, e.name, e.start_date, e.end_date,
-           MAX(t.fivb_tournament_no) FILTER (WHERE t.gender='M') AS men_no,
-           MAX(t.fivb_tournament_no) FILTER (WHERE t.gender='W') AS women_no
-    FROM event e
-    LEFT JOIN tournament t ON t.event_id = e.event_id
-    GROUP BY e.event_id
-    ORDER BY e.start_date DESC, e.event_id DESC
-    """
+def homepage(request: Request, year: int | None = None):
     with db() as conn, conn.cursor() as cur:
-        cur.execute(sql)
+        # 1) get available years
+        cur.execute("""
+            SELECT DISTINCT EXTRACT(YEAR FROM start_date)::int AS year
+            FROM event
+            ORDER BY year DESC;
+        """)
+        year_rows = cur.fetchall()
+        years = [r["year"] for r in year_rows]
+
+        if not years:
+            # no data – just empty page
+            return templates.TemplateResponse(
+                "index.html",
+                {
+                    "request": request,
+                    "events": [],
+                    "years": [],
+                    "current_year": None,
+                },
+            )
+        
+        # 2) get current_year
+        if year is None:            
+            current_year = years[0]
+        else:
+            current_year = year if year in years else years[0]
+
+        # 3) events for current_year
+        cur.execute("""
+            SELECT e.event_id, e.fivb_event_no, e.code, e.name, e.start_date, e.end_date,
+                   MAX(t.fivb_tournament_no) FILTER (WHERE t.gender='M') AS men_no,
+                   MAX(t.fivb_tournament_no) FILTER (WHERE t.gender='W') AS women_no
+            FROM event e
+            LEFT JOIN tournament t ON t.event_id = e.event_id
+            WHERE EXTRACT(YEAR FROM e.start_date)::int = %s
+            GROUP BY e.event_id
+            ORDER BY e.start_date DESC, e.event_id DESC;
+        """, (current_year,))
         rows = cur.fetchall()
-    return templates.TemplateResponse("index.html", {"request": request, "events": rows})
+    
+        return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "events": rows,
+            "years": years,
+            "current_year": current_year,
+        },
+    )
 
 @app.get("/tournament/{fivb_no}", response_class=HTMLResponse)
 def tournament_detail(request: Request, fivb_no: int):

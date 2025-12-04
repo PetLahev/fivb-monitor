@@ -1,41 +1,51 @@
 {% extends "base.html" %}
-{% block title %}Events – FIVB Monitor{% endblock %}
-
 {% block content %}
-<h2>Tournament Calendar</h2>
 
-<table class="data-table sortable" role="grid">
-    <thead>
-    <tr>
-        <th data-sort="string">Code</th>
-        <th data-sort="string">Name</th>
-        <th data-sort="date">Start</th>
-        <th data-sort="date">End</th>
-        <th data-sort="string">Men</th>
-        <th data-sort="string">Women</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for e in events %}
+    <h2>Events</h2>
+    
+    {% if years %}
+    <nav class="year-nav">
+        {% for y in years %}
+        <a href="/?year={{ y }}"
+            class="year-pill {% if y == current_year %}active{% endif %}">
+            {{ y }}
+        </a>
+        {% endfor %}
+    </nav>
+    {% endif %}
+
+    <table class="data-table sortable" role="grid">
+        <thead>
         <tr>
-            <td>{{ e.code }}</td>
-            <td>{{ e.name }}</td>
-            <td>{{ e.start_date }}</td>
-            <td>{{ e.end_date }}</td>
-            <td>
-                {% if e.men_no %}
-                    <a href="/tournament/{{ e.men_no }}">Men</a>
-                {% endif %}
-            </td>
-            <td>
-                {% if e.women_no %}
-                    <a href="/tournament/{{ e.women_no }}">Women</a>
-                {% endif %}
-            </td>
+            <th data-sort="string">Code</th>
+            <th data-sort="string">Name</th>
+            <th data-sort="date">Start</th>
+            <th data-sort="date">End</th>
+            <th data-sort="string">Men</th>
+            <th data-sort="string">Women</th>
         </tr>
-    {% else %}
-        <tr><td colspan="6">No events.</td></tr>
-    {% endfor %}
-    </tbody>
-</table>
+        </thead>
+        <tbody>
+        {% for e in events %}
+            <tr>
+                <td>{{ e.code }}</td>
+                <td>{{ e.name }}</td>
+                <td>{{ e.start_date }}</td>
+                <td>{{ e.end_date }}</td>
+                <td>
+                    {% if e.men_no %}
+                        <a href="/tournament/{{ e.men_no }}">Men</a>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if e.women_no %}
+                        <a href="/tournament/{{ e.women_no }}">Women</a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="6">No events.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
 {% endblock %}
