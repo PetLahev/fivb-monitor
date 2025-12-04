@@ -70,32 +70,84 @@ This reloads the application with the latest code.
 
 ### 8. API Description
 
-All API routes are under `/api`.
+The project exposes a small JSON API that is intended to be consumed by other services
+(e.g. a tournament front-end like `fivb.12ndr.at`).
 
-#### **GET `/api/withdrawals/{tournament_fivb_no}`**
+All responses are UTF-8 JSON and use ISO date strings (`YYYY-MM-DD`) where applicable.
 
-Returns all teams that withdrew from a specific tournament.
+### 1. Withdrawn teams by FIVB tournament No
+
+`GET /api/tournament/{fivb_no}/withdrawals`
+
+Example:
+
+```http
+GET /api/tournament/8136/withdrawals
+
 
 Response example:
 
 ``` json
 [
   {
-    "team_id": 1234,
+    "team_id": 123,
     "display_name": "Perusic/Schweiner",
     "player1_name": "Ondrej Perusic",
     "player2_name": "David Schweiner",
-    "fivb_player1_no": 56789,
-    "fivb_player2_no": 67890,
+    "fivb_player1_no": 11111,
+    "fivb_player2_no": 22222,
     "country_code": "CZE",
-    "withdrawn_at": "2025-03-12",
-    "tournament_id": 44,
-    "tournament_fivb_no": 3152,
-    "event_id": 101,
-    "event_fivb_no": 8899
+    "withdrawn_at": "2025-11-18",
+    "tournament_id": 10,
+    "tournament_fivb_no": 8136,
+    "event_id": 5,
+    "event_fivb_no": 1559,
+    "last_checked": "2025-11-19"
   }
 ]
 ```
+withdrawn_at is the first date on which a team disappears from the VIS team list
+compared to the previous crawl run.
+In other words:
+
+previous day: team was still present
+today: team is missing ⇒ withdrawn_at = today
+last_checked is the last crawl date for this tournament (max crawl_run.run_date)
+
+### 2. Withdrawn teams by TCODE (MITA2025 / WITA2025)
+
+Some clients (e.g. fivb.12ndr.at) identify tournaments using a short TCODE such as:
+MITA2025 – Men’s event Itapema 2025
+WITA2025 – Women’s event Itapema 2025
+
+The format is:
+-   first character: M or W (gender)
+-   next three characters: event short code, e.g. ITA
+-   remaining characters: year, e.g. 2025
+
+Internally this is mapped to our event code:
+BVB-{EVENT}{YEAR}
+e.g. BVB-ITA2025
+
+Endpoint:
+
+`GET /api/tcode/{tcode}/withdrawals
+
+Examples:
+```GET /api/tcode/MITA2025/withdrawals
+```GET /api/tcode/WITA2025/withdrawals
+
+The JSON response has exactly the same shape as the tournament/{fivb_no}/withdrawals
+endpoint, including:
+-   real FIVB player numbers (fivb_player1_no, fivb_player2_no)
+-   internal IDs (team_id, tournament_id, event_id)
+-   FIVB event and tournament numbers (event_fivb_no, tournament_fivb_no)
+-   withdrawn_at (first disappearance date based on crawl snapshots)
+-   last_checked (last crawl date for this tournament)
+
+Error codes:
+-   400 – invalid TCODE format (wrong length, missing gender prefix, etc.)
+-   404 – event not found for this TCODE, or tournament for the requested gender not found
 
 Notes: - All **IDs are real FIVB IDs where possible** (team/player
 numbers). - Withdrawn date is computed using the snapshot comparison
