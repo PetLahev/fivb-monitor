@@ -75,18 +75,15 @@ The project exposes a small JSON API that is intended to be consumed by other se
 
 All responses are UTF-8 JSON and use ISO date strings (`YYYY-MM-DD`) where applicable.
 
-### 1. Withdrawn teams by FIVB tournament No
+#### 1. Withdrawn teams by FIVB tournament No
 
 `GET /api/tournament/{fivb_no}/withdrawals`
 
 Example:
-
 ```http
 GET /api/tournament/8136/withdrawals
-
-
+```
 Response example:
-
 ``` json
 [
   {
@@ -109,12 +106,11 @@ Response example:
 withdrawn_at is the first date on which a team disappears from the VIS team list
 compared to the previous crawl run.
 In other words:
-
 previous day: team was still present
 today: team is missing ⇒ withdrawn_at = today
 last_checked is the last crawl date for this tournament (max crawl_run.run_date)
 
-### 2. Withdrawn teams by TCODE (MITA2025 / WITA2025)
+#### 2. Withdrawn teams by TCODE (MITA2025 / WITA2025)
 
 Some clients (e.g. fivb.12ndr.at) identify tournaments using a short TCODE such as:
 MITA2025 – Men’s event Itapema 2025
@@ -130,12 +126,13 @@ BVB-{EVENT}{YEAR}
 e.g. BVB-ITA2025
 
 Endpoint:
-
-`GET /api/tcode/{tcode}/withdrawals
+```
+GET /api/tcode/{tcode}/withdrawals
+```
 
 Examples:
-```GET /api/tcode/MITA2025/withdrawals
-```GET /api/tcode/WITA2025/withdrawals
+```GET /api/tcode/MITA2025/withdrawals```
+```GET /api/tcode/WITA2025/withdrawals```
 
 The JSON response has exactly the same shape as the tournament/{fivb_no}/withdrawals
 endpoint, including:
