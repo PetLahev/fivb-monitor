@@ -75,7 +75,7 @@ def _build_url(xml_body: str) -> str:
     return f"{FIVB_XML_ENDPOINT}?{_encode_request(xml_body)}"
 
 def _parse_date_yyyy_mm_dd(value: str) -> date:
-    # VIS často vrací 'YYYY-MM-DD' (bez času)
+    # VIS returns just 'YYYY-MM-DD' (without time)
     return datetime.strptime(value[:10], "%Y-%m-%d").date()
 
 def _xml_text(node: Optional[ET.Element], attr: str, default: Optional[str] = None) -> Optional[str]:
@@ -98,9 +98,9 @@ class HttpClient:
         self.headers = {
             "User-Agent": f"FIVB-Fetcher/1.0 (+python; contact=dev)",
         }
-        # Některé instalace VIS doporučují "Application" hlavičku
+        # it's recommended to use "Application" header
         if application_id:
-            self.headers["Application"] = application_id  # ponecháno konfigurovatelně
+            self.headers["Application"] = application_id  # configured
 
     def get_xml(self, url: str) -> ET.Element:
         last_exc: Optional[Exception] = None
@@ -159,7 +159,7 @@ def q_get_beach_team_list(no_tournament: int, status: str) -> str:
 # ---------- Parsers ----------
 def parse_event_list(root: ET.Element) -> List[Event]:
     events: List[Event] = []
-    # Struktura bývá <Response> <Event ... />
+    # The structure is <Response> <Event ... />
     for ev in root.findall(".//Event"):
         try:
             no = int(ev.attrib.get("No", "0"))
@@ -187,19 +187,19 @@ def parse_event_tournaments(root: ET.Element) -> List[BeachTournamentRef]:
             except ValueError:
                 continue
 
-            # Gender může být 'M'/'W' nebo '0'/'1'
+            # Gender can be 'M'/'W' or '0'/'1'
             gender_raw = bt.attrib.get("Gender")            
             gender_map = {"0": "M", "1": "W"}
             gender = gender_map.get(gender_raw, gender_raw)
             refs.append(BeachTournamentRef(tournament_no=tno, gender=gender))
 
-    # 1) Nejčastější případ: BeachTournament přímo uvnitř <Event>
+    # 1) Usually the 'BeachTournament' is inside the <Event> node
     for ev in root.findall(".//Event"):
         _collect_from_event_node(ev)
     if refs:
         return refs
 
-    # 2) Content jako samostatný XML obsah (CDATA)
+    # 2) Content like standalone XML (CDATA)
     content_nodes = root.findall(".//Content")
     for c in content_nodes:
         content_text = (c.text or "").strip()
@@ -217,7 +217,7 @@ def parse_event_tournaments(root: ET.Element) -> List[BeachTournamentRef]:
     if refs:
         return refs
 
-    # 3) Některé instalace dávají XML do atributu Content=""
+    # 3) Sometimes some responses puts XML inside the Content attribute
     for node in root.iter():
         content_attr = node.attrib.get("Content")
         if not content_attr:
@@ -269,8 +269,8 @@ def parse_teams(root: ET.Element, status: str) -> List[BeachTeam]:
     return teams
 
 def dedupe_teams(team_list: List["BeachTeam"]) -> List["BeachTeam"]:
-    """Udržuje unikátní týmy podle dvojice hráčů,
-    preferuje withdrawn stavy před registered."""
+    """Keeps unique teams based on the players' numbers (no_player1, no_player2),
+    prefers the withdrawn statuses before registered."""
     by_key: Dict[Tuple[Optional[int], Optional[int]], BeachTeam] = {}
 
     priority = {
@@ -296,9 +296,9 @@ def notify_error(msg: str):
         try:
             requests.post(webhook, json={"content": msg}, timeout=10)
         except Exception:
-            pass  # nechceme spadnout jen kvůli notifikaci
+            pass  # no need to fail just due to a notification
 
-    # Email – volitelné
+    # Email – optional
     if os.getenv("ALERT_EMAIL_TO"):
         import smtplib
         from email.mime.text import MIMEText
@@ -325,8 +325,8 @@ class FIVBService:
         self._request_count += n
         if self._request_count > self.max_requests_per_run:
             raise RuntimeError(
-                f"Překročen limit požadavků ({self._request_count} > {self.max_requests_per_run}). "
-                f"Zkrať seznam eventů nebo zvyšte limit s vědomím rizika."
+                f"The limit of request is over ({self._request_count} > {self.max_requests_per_run}). "
+                f"Make the list of events smaller or increase the requests limit."
             )
 
     def fetch_upcoming_events(self, year: int, window_days: int = 28, tz: str = DEFAULT_TZ) -> List[Event]:
@@ -340,13 +340,13 @@ class FIVBService:
         today = _today(tz)
         future_window_end = today + timedelta(days=window_days)
 
-        # Jen eventy s start_date v budoucnu a do 28 dnů (vč.)
+        # just events with start_date in future up to 28 days (included)
         selected = [
             ev for ev in all_events
             if ev.start_date >= today and ev.start_date <= future_window_end
         ]
 
-        logger.info(f"Nalezeno {len(all_events)} eventů, vybráno {len(selected)} v okně do {window_days} dnů.")
+        logger.info(f"Found {len(all_events)} events, selected {len(selected)} in the {window_days} days window.")
         return selected
 
     def fetch_event_tournaments(self, event_no: int) -> List[BeachTournamentRef]:
@@ -356,10 +356,10 @@ class FIVBService:
         return parse_event_tournaments(root)
 
     def fetch_teams_for_tournament(self, tournament_no: int) -> List[BeachTeam]:
-        """Načte všechny Registered + Withdrawn (+ WithdrawnWithMedicalCert) týmy pro turnaj.
+        """Fetch all Registered/Withdrawn/WithdrawnWithMedicalCert/Deleted teams for the tournament.
 
-        V testech může mock get_xml vyčerpat předpřipravenou sekvenci (IndexError z pop()),
-        v tom případě prostě skončíme dřív – pro reálný HttpClient k tomu nedojde.
+        The test mock get_xml may exceeded pre-prepared sequence (IndexError from the pop()),
+        in this case we finish early – the real HttpClient can't get into the state.
         """
         all_teams: List[BeachTeam] = []
 
@@ -369,7 +369,7 @@ class FIVBService:
             try:
                 root = self.client.get_xml(url)
             except IndexError:
-                # testovací side_effect(sequence.pop(0)) vyčerpal input → ukončíme loop
+                # testing side_effect(sequence.pop(0)) no more inputs → finish the loop
                 break
 
             teams = parse_teams(root, status)
@@ -412,7 +412,7 @@ def main():
         parser.add_argument("--timeout", type=int, default=30)
         parser.add_argument("--retry-wait", type=int, default=15*60, help="Seconds between retries (default 900)")
         parser.add_argument("--max-attempts", type=int, default=3)
-        parser.add_argument("--application-id", type=str, default="FIVB.12ndr.WithdrawnMonitor",  help="Identifikátor aplikace (Application header v requestech)")
+        parser.add_argument("--application-id", type=str, default="FIVB.12ndr.WithdrawnMonitor",  help="Application identification (Application header in requests)")
         parser.add_argument("--tz", type=str, default=DEFAULT_TZ)
         args = parser.parse_args()
 
@@ -426,7 +426,7 @@ def main():
 
         snapshots = svc.run(args.year)
 
-        # Výstup do konzole a souboru
+        # Output to console and file
         output_lines = []
 
         for snap in snapshots:
@@ -446,16 +446,9 @@ def main():
                     print(line)
                     output_lines.append(line)
 
-        # Zapsání do souboru (UTF-8, přepíše při každém běhu)
-        #output_path = "teams_output.txt"
-        #with open(output_path, "w", encoding="utf-8") as f:
-        #    f.write("\n".join(output_lines))
-
-        #print(f"\n✅ Výsledky zapsány do souboru: {output_path}")
-
-        store = Storage()  # vezme DATABASE_URL/PG* proměnné, jinak lokální defaulty
+        store = Storage()  # takes DATABASE_URL/PG* variables, otherwise local defaults
         store.persist_snapshots(snapshots, run_date=date.today())
-        print("✅ Uloženo do DB.")
+        print("✅ Saved in the DB.")
     except Exception as e:
         msg = f"❌ Scraper crashed: {e}"
         print(msg)

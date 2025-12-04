@@ -11,7 +11,7 @@ import psycopg2.extras
 # --------- Connection config ---------
 @dataclass
 class DBConfig:
-    # preferuje DATABASE_URL, jinak jednotlivé proměnné
+    # prefers DATABASE_URL otherwise use each variable separately
     database_url: Optional[str] = os.getenv("DATABASE_URL")
     host: str = os.getenv("PGHOST", "localhost")
     port: int = int(os.getenv("PGPORT", "5432"))
@@ -31,7 +31,7 @@ class DBConfig:
             cursor_factory=psycopg2.extras.DictCursor,
         )
 
-# --------- Public model types (kompatibilní s fivb_scraper.py) ---------
+# --------- Public model types (compatible with fivb_scraper.py) ---------
 @dataclass(frozen=True)
 class Event:
     no: int
@@ -51,7 +51,7 @@ class BeachTeam:
     no_player2: Optional[int]
     name: str
     rank: Optional[int]
-    status: str  # 'Registered' | 'Withdrawn' | 'WithdrawnWithMedicalCert'
+    status: str  # 'Registered' | 'Withdrawn' | 'WithdrawnWithMedicalCert' | 'Deleted'
     country_code: Optional[str] = None
 
 @dataclass
@@ -99,8 +99,8 @@ class Storage:
 
     def upsert_player(self, cur, fivb_no: Optional[int], name: Optional[str]) -> int:
         """
-        Preferujeme identifikaci hráče přes FIVB číslo (NoPlayerX).
-        Pokud číslo není, zkusíme najít podle jména (bez unique constraintu; je to best-effort).
+        Prefers the id of a player from FIVB (NoPlayerX).
+        If doesn't exist, let's find her/him according to name (no unique constraint; like best-effort).
         """
         if fivb_no is not None:
             cur.execute(
@@ -115,7 +115,7 @@ class Storage:
             )
             return cur.fetchone()["player_id"]
 
-        # fallback bez čísla – hledáme podle name (může být NULL → vložíme „bezejmenného“)
+        # fallback without number – let's find according to player's name (can be NULL → insert „noname“)
         if name:
             cur.execute("SELECT player_id FROM player WHERE name = %s LIMIT 1;", (name,))
             row = cur.fetchone()
@@ -130,14 +130,14 @@ class Storage:
         if p1_id != p2_id:
             return p1_id, p2_id
 
-        # vytvoř odlišného placeholder hráče
+        # create unique placeholder for a player
         placeholder_name = fallback_name or "Unknown"
         cur.execute("INSERT INTO player (name) VALUES (%s) RETURNING player_id;", (placeholder_name,))
         new_p2 = cur.fetchone()["player_id"]
         return p1_id, new_p2
 
     def upsert_team(self, cur, p1_id: int, p2_id: int, display_name: Optional[str], country_code=None) -> int:
-        # zajistíme stabilní pořadí (menší id jako player1)
+        # let's make consistent arranging (smaller id like player1)
         a, b = sorted((p1_id, p2_id))
         cur.execute(
             """
@@ -165,7 +165,7 @@ class Storage:
         row = cur.fetchone()
         if row:
             return row["run_id"]
-        # pokud existoval, načteme jeho id
+        # if exists, let's read the id
         cur.execute("SELECT run_id FROM crawl_run WHERE run_date = %s;", (run_date,))
         return cur.fetchone()["run_id"]
 
@@ -185,8 +185,8 @@ class Storage:
     # ---- main entrypoint ----
     def persist_snapshots(self, snapshots: Iterable[EventTeamsSnapshot], run_date: date) -> None:
         """
-        Uloží celou dávku snapshotů v jedné transakci.
-        Idempotentní vůči stejnému `run_date` (ON CONFLICT).
+        Saves the snapshots batch in one transaction.
+        Idempotent against the same `run_date` (ON CONFLICT).
         """
         con = self.cfg.connect()
         try:
@@ -208,15 +208,15 @@ class Storage:
                         for t_no, teams in snap.teams_by_tournament.items():
                             t_id = tourn_id_map.get(t_no)
                             if not t_id:
-                                # Může se stát, že turnaj nešel naparsovat – jen přeskoč
+                                # If tournament cannot be parsed – just continue
                                 continue
 
                             for team in teams:
                                 # Players
-                                p1_id = self.upsert_player(cur, team.no_player1, None)  # jména hráčů nemusí být v API
+                                p1_id = self.upsert_player(cur, team.no_player1, None)  # name of the players doesn't need to be in API
                                 p2_id = self.upsert_player(cur, team.no_player2, None)
 
-                                # NEW: zajisti, že se neshodují
+                                # make sure they are distinct
                                 fallback = team.name or "Unknown"
                                 p1_id, p2_id = self._ensure_distinct_players(cur, p1_id, p2_id, fallback_name=fallback)
                                 

@@ -4,7 +4,7 @@
 
 SET client_min_messages = WARNING;
 
--- Tabulky bez závislostí
+-- Tables without dependencies
 CREATE TABLE IF NOT EXISTS event (
   event_id SERIAL PRIMARY KEY,
   fivb_event_no INTEGER UNIQUE NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS crawl_run (
   note TEXT
 );
 
--- Turnaj (závislý na event)
+-- Event's tournaments
 CREATE TABLE IF NOT EXISTS tournament (
   tournament_id SERIAL PRIMARY KEY,
   fivb_tournament_no INTEGER UNIQUE NOT NULL,
@@ -48,17 +48,17 @@ CREATE TABLE IF NOT EXISTS tournament (
   CONSTRAINT ux_tournament_event_gender UNIQUE (event_id, gender)
 );
 
--- Typ statusu – odolný vůči opakovanému spuštění
+-- Status type
 DO $$
 BEGIN
   BEGIN
-    CREATE TYPE team_status AS ENUM ('Registered', 'Withdrawn');
+    CREATE TYPE team_status AS ENUM ('Registered', 'Withdrawn', 'WithdrawnWithMedicalCert', 'Deleted');
   EXCEPTION WHEN duplicate_object THEN
-    NULL; -- typ už existuje
+    NULL; -- already exists
   END;
 END$$;
 
--- Snapshoty (závisí na tournament/team/crawl_run + team_status)
+-- Snapshoty (depends on tournament/team/crawl_run + team_status)
 CREATE TABLE IF NOT EXISTS tournament_team_snapshot (
   tournament_id INTEGER NOT NULL REFERENCES tournament(tournament_id) ON DELETE CASCADE,
   team_id INTEGER NOT NULL REFERENCES team(team_id),
@@ -68,14 +68,14 @@ CREATE TABLE IF NOT EXISTS tournament_team_snapshot (
   PRIMARY KEY (tournament_id, team_id, run_id)
 );
 
--- Indexy
+-- Index
 CREATE INDEX IF NOT EXISTS idx_event_dates        ON event(start_date DESC, end_date DESC);
 CREATE INDEX IF NOT EXISTS idx_tournament_event   ON tournament(event_id);
 CREATE INDEX IF NOT EXISTS idx_snapshot_tourn_run ON tournament_team_snapshot (tournament_id, run_id);
 CREATE INDEX IF NOT EXISTS idx_snapshot_team      ON tournament_team_snapshot (team_id);
 CREATE INDEX IF NOT EXISTS idx_snapshot_status    ON tournament_team_snapshot (status);
 
--- View pro první den, kdy se tým stane Withdrawn
+-- View for the first day when a team withdrew from a tournament
 CREATE OR REPLACE VIEW v_tournament_team_withdrawal AS
 WITH ordered AS (
   SELECT

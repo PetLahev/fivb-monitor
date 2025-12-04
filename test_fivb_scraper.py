@@ -10,7 +10,7 @@ def _xml(s: str) -> ET.Element:
     return ET.fromstring(s)
 
 def test_parse_event_list_and_window(monkeypatch):
-    # Připravíme XML s 3 eventy: včerejší, za 10 dní, za 40 dní
+    # Prepares XML wth three events: yesterday, in 10 days, in 40 days
     today = fs._today()
     xml = f"""
     <Response>
@@ -24,12 +24,12 @@ def test_parse_event_list_and_window(monkeypatch):
 
     with patch.object(hc, "get_xml", return_value=_xml(xml)) as m:
         events = svc.fetch_upcoming_events(year=today.year, window_days=28)
-        # Jen "Soon" zůstane (je v budoucnu <= 28 dnů)
+        # one event only (it's in future <= 28 days)
         assert len(events) == 1
         assert events[0].no == 101
 
 def test_event_tournaments_and_teams_flow(monkeypatch):
-    # Arrange: 1 event (No=555), 2 turnaje (M, W), a pár týmů
+    # Arrange: 1 event (No=555), 2 tournaments (M, W), a few teams
     event_list_xml = """
     <Response>
       <Event No="555" Code="X" Name="Test" StartDate="2099-01-10" EndDate="2099-01-12"/>
@@ -57,7 +57,7 @@ def test_event_tournaments_and_teams_flow(monkeypatch):
     hc = fs.HttpClient()
     svc = fs.FIVBService(hc, max_requests_per_run=20)
 
-    # Mockování pořadí volání:
+    # Mock command orders:
     # 1) GetEventList
     # 2) GetEvent(555)
     # 3) Registered(8136), Withdrawn(8136)
@@ -69,20 +69,20 @@ def test_event_tournaments_and_teams_flow(monkeypatch):
       # 8136: Registered, Withdrawn, WithdrawnWithMedicalCert
       _xml(team_registered_xml),
       _xml(team_withdrawn_xml),
-      _xml(team_withdrawn_xml),  # můžeme znovu použít withdrawn
+      _xml(team_withdrawn_xml),  # we can use again withdrawn, doesn't matter
 
       # 8137: Registered, Withdrawn, WithdrawnWithMedicalCert
       _xml(team_registered_xml),
       _xml(team_withdrawn_xml),
-      _xml(team_withdrawn_xml),  # znovu Withdrawn (nebo klidně Registered, je to jedno)
+      _xml(team_withdrawn_xml),  # we can use again withdrawn, doesn't matter
     ]
 
     def side_effect(_):
         return sequence.pop(0)
 
     with patch.object(hc, "get_xml", side_effect=side_effect):
-        # Aby event byl v okně 28 dnů, přenastavíme helper fetch_upcoming_events tak,
-        # že vrátí jeden předpřipravený event (vyhneme se závislosti na dnech)
+        # To make an event  in next 28 days, adjust helper fetch_upcoming_events the way,
+        # it returns one pre-prepared event (avoiding days dependency)
         with patch.object(fs, "_today", return_value=date(2099, 1, 1)):
             snapshots = svc.run(2099)
 
@@ -96,10 +96,10 @@ def test_event_tournaments_and_teams_flow(monkeypatch):
     assert len(snap.teams_by_tournament[8137]) == 2
 
 def test_retry_logic_waits_and_limits(monkeypatch):
-    hc = fs.HttpClient(retry_wait_seconds=1, max_attempts=3)  # zkráceno pro test
+    hc = fs.HttpClient(retry_wait_seconds=1, max_attempts=3)  # shortened for test
     svc = fs.FIVBService(hc, max_requests_per_run=2)
 
-    # fake response objekt
+    # fake response object
     class FakeResp:
         def __init__(self, status_code=200, text="<Response></Response>"):
             self.status_code = status_code
@@ -109,21 +109,21 @@ def test_retry_logic_waits_and_limits(monkeypatch):
     def flaky_session_get(url, headers=None, timeout=None):
         calls["i"] += 1
         if calls["i"] < 3:
-            # simuluj dočasný výpadek (non-200 nebo exception, obojí by fungovalo)
+            # mock temporary unavailability (non-200 or exception, both works)
             raise requests.RequestException("temporary failure")
         return FakeResp(200, "<Response></Response>")
 
-    # mockni nízkou vrstvu => retry uvnitř HttpClient.get_xml zůstane aktivní
+    # mocking low level layer => retry inside the HttpClient.get_xml stays active
     monkeypatch.setattr(hc.session, "get", flaky_session_get)
 
     url = fs.q_get_event_list(date(2099,1,1), date(2099,12,31))
-    svc._track()  # simulace 1. requestu kvůli limitu
+    svc._track()  # one request because of the limit
 
-    # zrychlíme čekání mezi retry
+    # lets make the waiting faster than in real code
     with patch("time.sleep") as sleep_mock:
         root = hc.get_xml(url)
         assert isinstance(root, ET.Element)
-        # 2 selhání => 2 pauzy
+        # 2 errors => 2 pauses
         assert sleep_mock.call_count == 2
         assert calls["i"] == 3
 
@@ -131,25 +131,25 @@ def test_max_request_cap(monkeypatch):
     hc = fs.HttpClient()
     svc = fs.FIVBService(hc, max_requests_per_run=1)
     with patch.object(hc, "get_xml", return_value=_xml("<Response/>")):
-        # první průchod fetch_upcoming_events volá _track() -> 1
-        # Druhé _track() už přeteče
+        # first go through fetch_upcoming_events calls _track() -> 1
+        # Second _track() goes to exception
         svc.fetch_upcoming_events(year=2099)
         try:
             svc.fetch_event_tournaments(123)
-            assert False, "mělo vyhodit RuntimeError pro překročení limitu"
+            assert False, "should throw  RuntimeError for overflow the limit"
         except RuntimeError:
             pass
 
 def test_parse_event_tournaments_from_content():
-    # Content jako element s raw XML
+    # Content as raw XML
     xml = """
     <Response>
       <Event No="555"/>
       <Content>
         <![CDATA[
           <Event>
-            <BeachTournament No="8137" Gender="0" />
-            <BeachTournament No="8136" Gender="1" />
+            <BeachTournament No="8137" Gender="1" />
+            <BeachTournament No="8136" Gender="0" />
           </Event>
         ]]>
       </Content>
@@ -160,7 +160,7 @@ def test_parse_event_tournaments_from_content():
     nos = sorted([r.tournament_no for r in refs])
     assert nos == [8136, 8137]
     genders = {r.tournament_no: r.gender for r in refs}
-    # podle naší mapy {"1":"M","0":"W"}:
+    # {"0": "M", "1": "W"}:
     assert genders[8136] == "M"
     assert genders[8137] == "W"
 
@@ -168,7 +168,7 @@ def test_tournament_without_teams_does_not_break(monkeypatch):
     hc = fs.HttpClient()
     svc = fs.FIVBService(hc, max_requests_per_run=10)
 
-    # 1 event v okně, 1 turnaj, oba listy vrátí prázdné XML
+    # 1 event in the days window, 1 tournament, both lists returns empty XML
     event_list_xml = """
     <Response>
       <Event No="555" Code="X" Name="Test" StartDate="2099-01-10" EndDate="2099-01-12"/>
@@ -201,5 +201,5 @@ def test_tournament_without_teams_does_not_break(monkeypatch):
     assert len(snaps) == 1
     snap = snaps[0]
     assert 9001 in snap.teams_by_tournament
-    assert snap.teams_by_tournament[9001] == []  # prázdný seznam, ale žádný crash
+    assert snap.teams_by_tournament[9001] == []  # empty list, but no crash
 

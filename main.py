@@ -63,7 +63,7 @@ def homepage(request: Request):
 @app.get("/tournament/{fivb_no}", response_class=HTMLResponse)
 def tournament_detail(request: Request, fivb_no: int):
     with db() as conn, conn.cursor() as cur:
-        # najdeme turnaj podle FIVB čísla
+        # find tournament based on FIVB id
         cur.execute("""
             SELECT t.tournament_id,
                 t.gender,
@@ -89,7 +89,7 @@ def tournament_detail(request: Request, fivb_no: int):
                 },
             )
 
-        # najdeme případný opačný turnaj (M ↔ W) v rámci stejného eventu
+        # try to find the tournament of opposite gender (M ↔ W) inside the same event
         other_fivb_no = None
         other_gender = None
         if t["gender"] in ("M", "W"):
@@ -106,7 +106,7 @@ def tournament_detail(request: Request, fivb_no: int):
                 other_fivb_no = other["fivb_tournament_no"]
                 other_gender = other["gender"]
 
-        # aktuální stav týmů pro daný turnaj
+        # the teams in the tournament for current run
         cur.execute("""
         WITH cur AS (
           SELECT DISTINCT ON (tts.team_id)
@@ -158,8 +158,8 @@ def tournament_detail(request: Request, fivb_no: int):
 
 def flag_url(nf: Optional[str]) -> Optional[str]:
     """
-    nf = 3písmenný country/federation kód (např. CZE, BRA, USA, ENG, WAL)
-    Vrací URL na lokální malou vlajku v /static/flags.
+    nf = 3-letter country/federation code (foe example: CZE, BRA, USA, ENG, WAL)
+    Returns local url path to the flag stored inside /static/flags.
     """
     if not nf:
         return None
