@@ -32,6 +32,7 @@ class WithdrawalTeam(BaseModel):
     # country and date of withdrawal
     country_code: Optional[str]
     withdrawn_at: Optional[str]  # ISO string "YYYY-MM-DD" nebo None
+    withdrawn_status: Optional[str]  # 'Withdrawn'/'WithdrawnWithMedicalCert'/'Deleted'
 
     # Tournaments/events identification for pairing
     tournament_id: int
@@ -129,7 +130,8 @@ def api_tournament_withdrawals(fivb_no: int):
               p1.fivb_player_no AS fivb_player1_no,
               p2.fivb_player_no AS fivb_player2_no,
 
-              w.withdrawn_at
+              w.withdrawn_at,
+              w.withdrawn_status
             FROM v_tournament_team_withdrawal w
             JOIN team   tm ON tm.team_id   = w.team_id
             JOIN player p1 ON p1.player_id = tm.player1_id
@@ -152,6 +154,7 @@ def api_tournament_withdrawals(fivb_no: int):
                 fivb_player2_no=r["fivb_player2_no"],
                 country_code=r["country_code"],
                 withdrawn_at=r["withdrawn_at"].isoformat() if r["withdrawn_at"] else None,
+                withdrawn_status=r["withdrawn_status"],
                 tournament_id=tournament_id,
                 tournament_fivb_no=tournament_fivb_no,
                 event_id=event_id,
@@ -228,7 +231,8 @@ def api_tcode_withdrawals(tcode: str):
               p1.fivb_player_no AS fivb_player1_no,
               p2.fivb_player_no AS fivb_player2_no,
 
-              w.withdrawn_at
+              w.withdrawn_at,
+              w.withdrawn_status
             FROM v_tournament_team_withdrawal w
             JOIN team   tm ON tm.team_id   = w.team_id
             JOIN player p1 ON p1.player_id = tm.player1_id
@@ -264,6 +268,7 @@ def api_tcode_withdrawals(tcode: str):
                 fivb_player2_no=r["fivb_player2_no"],
                 country_code=r["country_code"],
                 withdrawn_at=r["withdrawn_at"].isoformat() if r["withdrawn_at"] else None,
+                withdrawn_status=r["withdrawn_status"],
                 tournament_id=tournament_id,
                 tournament_fivb_no=tournament_fivb_no,
                 event_id=event_id,
