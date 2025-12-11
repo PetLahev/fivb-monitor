@@ -7,7 +7,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from api import router as api_router
-from datetime import datetime
+from datetime import datetime, date
+
 import psycopg2, psycopg2.extras
 import os
 
@@ -149,13 +150,13 @@ def tournament_detail(request: Request, fivb_no: int):
           SELECT DISTINCT ON (tts.team_id)
             tts.team_id,
             tts.status AS current_status,
-            cr.run_date AS as_of_date
+            cr.created_at AS as_of_datetime
           FROM tournament_team_snapshot tts
           JOIN crawl_run cr ON cr.run_id = tts.run_id
           WHERE tts.tournament_id = %s
-          ORDER BY tts.team_id, cr.run_date DESC
+          ORDER BY tts.team_id, cr.created_at DESC
         )
-        SELECT
+         SELECT
           tm.team_id,
           p1.name AS player1,
           p2.name AS player2,
@@ -163,7 +164,7 @@ def tournament_detail(request: Request, fivb_no: int):
           tm.country_code,
           cur.current_status,
           w.withdrawn_at,
-          MAX(cur.as_of_date) OVER () AS last_checked
+          MAX(cur.as_of_datetime) OVER () AS last_checked
         FROM cur
         JOIN team tm ON tm.team_id = cur.team_id
         JOIN player p1 ON p1.player_id = tm.player1_id
@@ -223,5 +224,16 @@ def format_date(value):
     # '22 Nov 2025'
     return value.strftime("%d %b %Y")
 
+def format_datetime(value, fmt: str = "%Y-%m-%d %H:%M") -> str:
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.strftime(fmt)
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day).strftime(fmt)
+    return str(value)
+
 # make filter available in templates
 templates.env.filters["format_date"] = format_date
+# make filter available in templates
+templates.env.filters["format_datetime"] = format_datetime

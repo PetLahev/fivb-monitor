@@ -21,7 +21,7 @@
 
 {% if last_checked %}
   <p class="last-checked">
-    Last checked: {{ last_checked | format_date }}
+    Last checked: {{ last_checked | format_datetime }}
   </p>
 {% endif %}
 <table class="data-table sortable" role="grid">
