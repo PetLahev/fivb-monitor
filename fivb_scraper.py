@@ -13,8 +13,8 @@ import urllib.parse
 import requests
 import html
 
-WITHDRAWN_STATES = ["Withdrawn", "WithdrawnWithMedicalCert", "Deleted"]
-STATUSES_TO_FETCH = ["Registered"] + WITHDRAWN_STATES
+# WITHDRAWN_STATES = ["Withdrawn", "WithdrawnWithMedicalCert", "Deleted", "Unknown"]
+# STATUSES_TO_FETCH = ["Registered"] + WITHDRAWN_STATES
 
 try:
     # Python 3.9+
@@ -52,7 +52,7 @@ class BeachTeam:
     no_player2: Optional[int]
     name: str
     rank: Optional[int]
-    status: str  # 'Registered' / 'Withdrawn' / 'WithdrawnWithMedicalCert'
+    status: str  # 'Registered' / 'Withdrawn' / 'WithdrawnWithMedicalCert' / 'Unknown'
     country_code: Optional[str] = None
 
 @dataclass
@@ -145,11 +145,12 @@ def q_get_event(no: int) -> str:
     )
     return _build_url(xml)
 
-def q_get_beach_team_list(no_tournament: int, status: str) -> str:
+def q_get_beach_team_list(no_tournament: int) -> str:
     xml = (
         "<Requests>"
-        "<Request Type='GetBeachTeamList' Fields='NoPlayer1 NoPlayer2 Name Rank Player1FederationCode'>"
-        f"<Filter NoTournament='{no_tournament}' Status='{status}'/>"
+        "<Request Type='GetBeachTeamList' "
+        "Fields='NoPlayer1 NoPlayer2 Name Rank Player1FederationCode Status'>"
+        f"<Filter NoTournament='{no_tournament}'/>"
         "</Request>"
         "</Requests>"
     )
@@ -233,7 +234,30 @@ def parse_event_tournaments(root: ET.Element) -> List[BeachTournamentRef]:
 
     return refs
 
-def parse_teams(root: ET.Element, status: str) -> List[BeachTeam]:
+STATUS_CODE_TO_NAME = {
+    "0": "Registered",
+    "1": "Deleted",
+    "2": "Withdrawn",
+    "3": "WithdrawnWithMedicalCert",
+    "4": "Unknown",
+}
+
+def map_status_from_xml(node: ET.Element) -> str:
+    raw = node.attrib.get("Status")
+    if raw is None:
+        # fallback – if no status, let's use 'Registered'
+        return "Registered"
+    # works for both string or number
+    if raw in STATUS_CODE_TO_NAME:
+        return STATUS_CODE_TO_NAME[raw]
+    # if we gets string directly
+    if raw in ["Registered", "Deleted", "Withdrawn", "WithdrawnWithMedicalCert", "Unknown"]:
+        return raw
+    # let's log anything else → Unknown
+    logger.warning(f"Unrecognized team status from VIS: {raw!r}, mapping to 'Unknown'")
+    return "Unknown"
+
+def parse_teams(root: ET.Element) -> List[BeachTeam]:
     teams: List[BeachTeam] = []
     for node in root.findall(".//BeachTeam"):
         name = node.attrib.get("Name", "")
@@ -244,17 +268,15 @@ def parse_teams(root: ET.Element, status: str) -> List[BeachTeam]:
         no1 = int(p1) if p1 and p1.isdigit() else None
         no2 = int(p2) if p2 and p2.isdigit() else None
 
-        # PRIMARY – federation code for player 1 (FIVB official)
         cc = node.attrib.get("Player1FederationCode")
-
-        # fallback options
         if not cc:
             cc = node.attrib.get("CountryCode") or node.attrib.get("NF")
-
         if cc:
             cc = cc.strip().upper()
             if len(cc) != 3:
                 cc = None
+
+        status = map_status_from_xml(node)
 
         teams.append(
             BeachTeam(
@@ -274,6 +296,7 @@ def dedupe_teams(team_list: List["BeachTeam"]) -> List["BeachTeam"]:
     by_key: Dict[Tuple[Optional[int], Optional[int]], BeachTeam] = {}
 
     priority = {
+        "Unknown": 4,
         "Deleted": 3,
         "WithdrawnWithMedicalCert": 2,
         "Withdrawn": 1,
@@ -356,26 +379,16 @@ class FIVBService:
         return parse_event_tournaments(root)
 
     def fetch_teams_for_tournament(self, tournament_no: int) -> List[BeachTeam]:
-        """Fetch all Registered/Withdrawn/WithdrawnWithMedicalCert/Deleted teams for the tournament.
+        """Fetch all teams for the tournament and dedupe by status priority."""
+        url = q_get_beach_team_list(tournament_no)
+        self._track()
+        try:
+            root = self.client.get_xml(url)
+        except IndexError:
+            return []
 
-        The test mock get_xml may exceeded pre-prepared sequence (IndexError from the pop()),
-        in this case we finish early – the real HttpClient can't get into the state.
-        """
-        all_teams: List[BeachTeam] = []
-
-        for status in STATUSES_TO_FETCH:
-            url = q_get_beach_team_list(tournament_no, status=status)
-            self._track()
-            try:
-                root = self.client.get_xml(url)
-            except IndexError:
-                # testing side_effect(sequence.pop(0)) no more inputs → finish the loop
-                break
-
-            teams = parse_teams(root, status)
-            all_teams.extend(teams)
-
-        return dedupe_teams(all_teams)
+        teams = parse_teams(root)
+        return dedupe_teams(teams)
 
     def run(self, year: int) -> List[EventTeamsSnapshot]:
         snapshots: List[EventTeamsSnapshot] = []
