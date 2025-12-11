@@ -157,17 +157,14 @@ class Storage:
             """
             INSERT INTO crawl_run (run_date)
             VALUES (%s)
-            ON CONFLICT (run_date) DO NOTHING
+            ON CONFLICT (run_date)
+            DO UPDATE SET created_at = now()
             RETURNING run_id;
             """,
             (run_date,),
         )
         row = cur.fetchone()
-        if row:
-            return row["run_id"]
-        # if exists, let's read the id
-        cur.execute("SELECT run_id FROM crawl_run WHERE run_date = %s;", (run_date,))
-        return cur.fetchone()["run_id"]
+        return row["run_id"]
 
     def upsert_snapshot(self, cur, tournament_id: int, team_id: int, run_id: int,
                         status: str, rank: Optional[int]) -> None:
